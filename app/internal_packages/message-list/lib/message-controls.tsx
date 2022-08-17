@@ -9,6 +9,8 @@ import {
   GetMessageRFC2822Task,
   Thread,
   Message,
+  ChangeFolderTask,
+  CategoryStore,
 } from 'mailspring-exports';
 import { RetinaImg, ButtonDropdown, Menu } from 'mailspring-component-kit';
 
@@ -41,6 +43,12 @@ export default class MessageControls extends React.Component<MessageControlsProp
       select: this._onForward,
     };
 
+    const deleteMessage = {
+      name: localized('Delete'),
+      image: 'toolbar-trash.png',
+      select: this._onDeleteMessage,
+    };
+
     const showOriginal = {
       name: localized('Show Original'),
       image: 'ic-dropdown-whitespace.png',
@@ -48,12 +56,15 @@ export default class MessageControls extends React.Component<MessageControlsProp
     };
 
     if (!this.props.message.canReplyAll()) {
-      return [reply, forward, showOriginal];
+      return [reply, forward, deleteMessage, showOriginal];
     }
     const defaultReplyType = AppEnv.config.get('core.sending.defaultReplyType');
-    return defaultReplyType === 'reply-all'
-      ? [replyAll, reply, forward, showOriginal]
-      : [reply, replyAll, forward, showOriginal];
+
+    return (defaultReplyType === 'reply-all' ? [replyAll, reply] : [reply, replyAll]).concat(
+      forward,
+      deleteMessage,
+      showOriginal
+    );
   }
 
   _dropdownMenu(items) {
@@ -119,9 +130,28 @@ export default class MessageControls extends React.Component<MessageControlsProp
     menu.popup({});
   };
 
+  _onDeleteMessage = async () => {
+    const { thread, message } = this.props,
+      messageCount = (await thread.messages()).filter(
+        m => ['trash', 'spam'].indexOf(m.folder.role) == -1
+      ).length;
+
+    Actions.queueTask(
+      new ChangeFolderTask({
+        source: 'Message thread: Delete mesage button',
+        folder: CategoryStore.getTrashCategory(thread.accountId),
+        messages: messageCount > 1 ? [message] : undefined,
+        threads: messageCount > 1 ? undefined : [thread],
+      })
+    );
+  };
+
   _onShowOriginal = async () => {
     const { message } = this.props;
-    const filepath = require('path').join(require('@electron/remote').app.getPath('temp'), message.id);
+    const filepath = require('path').join(
+      require('@electron/remote').app.getPath('temp'),
+      message.id
+    );
     const task = new GetMessageRFC2822Task({
       messageId: message.id,
       accountId: message.accountId,
