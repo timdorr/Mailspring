@@ -138,7 +138,7 @@ export default class MessageControls extends React.Component<MessageControlsProp
 
     Actions.queueTask(
       new ChangeFolderTask({
-        source: 'Message thread: Delete mesage button',
+        source: 'Message thread: Delete message button',
         folder: CategoryStore.getTrashCategory(thread.accountId),
         messages: messageCount > 1 ? [message] : undefined,
         threads: messageCount > 1 ? undefined : [thread],
