@@ -8,6 +8,7 @@ import {
   Actions,
   AttachmentStore,
   MessageStore,
+  CanvasUtils,
 } from 'mailspring-exports';
 import { RetinaImg, InjectedComponentSet, InjectedComponent } from 'mailspring-component-kit';
 
@@ -15,6 +16,7 @@ import MessageParticipants from './message-participants';
 import MessageItemBody from './message-item-body';
 import MessageTimestamp from './message-timestamp';
 import MessageControls from './message-controls';
+import _ from 'underscore';
 
 interface MessageItemProps {
   thread: Thread;
@@ -188,6 +190,8 @@ export default class MessageItem extends React.Component<MessageItemProps, Messa
         ref={el => (this._headerEl = el)}
         className={`message-header ${pending && 'pending'}`}
         onClick={this._onClickHeader}
+        draggable={!this.state.detailedHeaders}
+        onDragStart={this._onDragMessage}
       >
         <InjectedComponent
           matching={{ role: 'MessageHeader' }}
@@ -232,6 +236,15 @@ export default class MessageItem extends React.Component<MessageItemProps, Messa
       </header>
     );
   }
+
+  _onDragMessage = (event: React.DragEvent) => {
+    event.dataTransfer.effectAllowed = 'move';
+
+    const canvas = CanvasUtils.canvasForDragging('threads', 1);
+    event.dataTransfer.setDragImage(canvas, 10, 10);
+    event.dataTransfer.setData('mailspring-message-id', this.props.message.id);
+    event.dataTransfer.setData(`mailspring-accounts=${this.props.message.accountId}`, '1');
+  };
 
   _renderHeaderDetailToggle() {
     if (this.props.pending) {
@@ -315,7 +328,7 @@ export default class MessageItem extends React.Component<MessageItemProps, Messa
     return (
       <div className={className} onClick={this._onToggleCollapsed}>
         <div className="message-item-white-wrap">
-          <div className="message-item-area">
+          <div className="message-item-area" draggable onDragStart={this._onDragMessage}>
             <div className="collapsed-from">
               {from &&
                 from[0] &&

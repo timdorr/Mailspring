@@ -13,6 +13,7 @@ import ThreadCountsStore from './flux/stores/thread-counts-store';
 import FolderSyncProgressStore from './flux/stores/folder-sync-progress-store';
 import { MutableQuerySubscription } from './flux/models/mutable-query-subscription';
 import UnreadQuerySubscription from './flux/models/unread-query-subscription';
+import { Message } from './flux/models/message';
 import { Thread } from './flux/models/thread';
 import { Category } from './flux/models/category';
 import { Label } from './flux/models/label';
@@ -201,20 +202,37 @@ export class MailboxPerspective {
     return areIncomingIdsInCurrent;
   }
 
-  receiveThreadIds(threadIds: Array<Thread | string>) {
-    DatabaseStore.modelify<Thread>(Thread, threadIds).then(threads => {
-      const tasks = TaskFactory.tasksForThreadsByAccountId(threads, (accountThreads, accountId) => {
-        return this.actionsForReceivingThreads(accountThreads, accountId);
+  receiveIds(threadIds: Array<Thread | string> | null, messageIds: Array<Message | string> | null) {
+    if (threadIds && threadIds.length) {
+      DatabaseStore.modelify<Thread>(Thread, threadIds).then(threads => {
+        const tasks = TaskFactory.tasksForThreadsByAccountId(
+          threads,
+          (accountThreads, accountId) => {
+            return this.actionsForReceiving(accountThreads, [], accountId);
+          }
+        );
+        if (tasks.length > 0) {
+          Actions.queueTasks(tasks);
+        }
       });
-      if (tasks.length > 0) {
-        Actions.queueTasks(tasks);
-      }
-    });
+    } else if (messageIds && messageIds.length) {
+      DatabaseStore.modelify<Message>(Message, messageIds).then(messages => {
+        const tasks = TaskFactory.tasksForMessagesByAccountId(
+          messages,
+          (accountMessages, accountId) => {
+            return this.actionsForReceiving([], accountMessages, accountId);
+          }
+        );
+        if (tasks.length > 0) {
+          Actions.queueTasks(tasks);
+        }
+      });
+    }
   }
 
-  actionsForReceivingThreads(threads: Thread[], accountId: string): Task | Task[] {
+  actionsForReceiving(threads: Thread[], message: Message[], accountId: string): Task | Task[] {
     // eslint-disable-line
-    throw new Error('actionsForReceivingThreads: Not implemented in base class.');
+    throw new Error('actionsForReceiving: Not implemented in base class.');
   }
 
   canArchiveThreads(threads: Thread[]) {
@@ -301,12 +319,13 @@ class StarredMailboxPerspective extends MailboxPerspective {
     return super.canReceiveThreadsFromAccountIds(threads);
   }
 
-  actionsForReceivingThreads(threads, accountId) {
+  actionsForReceiving(threads, messages, accountId) {
     ChangeStarredTask =
       ChangeStarredTask || require('./flux/tasks/change-starred-task').ChangeStarredTask;
     return new ChangeStarredTask({
       accountId,
-      threads,
+      threads: threads,
+      messages: messages,
       starred: true,
       source: 'Dragged Into List',
     });
@@ -375,7 +394,10 @@ class CategoryMailboxPerspective extends MailboxPerspective {
   isEqual(other) {
     return (
       super.isEqual(other) &&
-      _.isEqual(this.categories().map(c => c.id), other.categories().map(c => c.id))
+      _.isEqual(
+        this.categories().map(c => c.id),
+        other.categories().map(c => c.id)
+      )
     );
   }
 
@@ -440,7 +462,7 @@ class CategoryMailboxPerspective extends MailboxPerspective {
     );
   }
 
-  actionsForReceivingThreads(threads, accountId) {
+  actionsForReceiving(threads: Thread[], messages: Message[], accountId) {
     FocusedPerspectiveStore =
       FocusedPerspectiveStore || require('./flux/stores/focused-perspective-store').default;
     ChangeLabelsTask =
@@ -471,6 +493,7 @@ class CategoryMailboxPerspective extends MailboxPerspective {
       return [
         new ChangeLabelsTask({
           threads,
+          messages,
           source: 'Dragged into list',
           labelsToAdd: [],
           labelsToRemove: [currentCat],
@@ -482,6 +505,7 @@ class CategoryMailboxPerspective extends MailboxPerspective {
       return [
         new ChangeFolderTask({
           threads,
+          messages,
           source: 'Dragged into list',
           folder: myCat,
         }),
@@ -494,11 +518,13 @@ class CategoryMailboxPerspective extends MailboxPerspective {
       return [
         new ChangeFolderTask({
           threads,
+          messages,
           source: 'Dragged into list',
           folder: CategoryStore.getCategoryByRole(accountId, 'all'),
         }),
         new ChangeLabelsTask({
           threads,
+          messages,
           source: 'Dragged into list',
           labelsToAdd: [myCat],
           labelsToRemove: [],
@@ -509,6 +535,7 @@ class CategoryMailboxPerspective extends MailboxPerspective {
     return [
       new ChangeLabelsTask({
         threads,
+        messages,
         source: 'Dragged into list',
         labelsToAdd: [myCat],
         labelsToRemove: currentCat ? [currentCat] : [],
@@ -582,13 +609,14 @@ class UnreadMailboxPerspective extends CategoryMailboxPerspective {
     return 0;
   }
 
-  actionsForReceivingThreads(threads, accountId) {
+  actionsForReceiving(threads, messages, accountId) {
     ChangeUnreadTask =
       ChangeUnreadTask || require('./flux/tasks/change-unread-task').ChangeUnreadTask;
-    const tasks = super.actionsForReceivingThreads(threads, accountId);
+    const tasks = super.actionsForReceiving(threads, messages, accountId);
     tasks.push(
       new ChangeUnreadTask({
-        threads: threads,
+        threads,
+        messages,
         unread: true,
         source: 'Dragged Into List',
       })

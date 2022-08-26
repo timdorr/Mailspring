@@ -3,6 +3,7 @@ import { ChangeLabelsTask } from './change-labels-task';
 import { ChangeUnreadTask } from './change-unread-task';
 import { ChangeStarredTask } from './change-starred-task';
 import CategoryStore from '../stores/category-store';
+import { Message } from '../models/message';
 import { Thread } from '../models/thread';
 import { Label } from '../models/label';
 import { Task } from '../tasks/task';
@@ -12,7 +13,7 @@ export const TaskFactory = {
     threads: Thread[],
     callback: (accountThreads: Thread[], accountId: string) => Task | Task[]
   ) {
-    const byAccount = {};
+    const byAccount: Record<string, { accountId: string; accountThreads: Thread[] }> = {};
     threads.forEach(thread => {
       if (!(thread instanceof Thread)) {
         throw new Error('tasksForApplyingCategories: `threads` must be instances of Thread');
@@ -27,6 +28,34 @@ export const TaskFactory = {
     const tasks = [];
     Object.values(byAccount).forEach(({ accountThreads, accountId }) => {
       const taskOrTasks = callback(accountThreads, accountId);
+      if (taskOrTasks && taskOrTasks instanceof Array) {
+        tasks.push(...taskOrTasks);
+      } else if (taskOrTasks) {
+        tasks.push(taskOrTasks);
+      }
+    });
+    return tasks;
+  },
+
+  tasksForMessagesByAccountId(
+    messages: Message[],
+    callback: (accountThreads: Message[], accountId: string) => Task | Task[]
+  ) {
+    const byAccount: Record<string, { accountId: string; accountMessages: Message[] }> = {};
+    messages.forEach(message => {
+      if (!(message instanceof Message)) {
+        throw new Error('tasksForApplyingCategories: `messages` must be instances of Message');
+      }
+      const { accountId } = message;
+      if (!byAccount[accountId]) {
+        byAccount[accountId] = { accountMessages: [], accountId: accountId };
+      }
+      byAccount[accountId].accountMessages.push(message);
+    });
+
+    const tasks = [];
+    Object.values(byAccount).forEach(({ accountMessages, accountId }) => {
+      const taskOrTasks = callback(accountMessages, accountId);
       if (taskOrTasks && taskOrTasks instanceof Array) {
         tasks.push(...taskOrTasks);
       } else if (taskOrTasks) {

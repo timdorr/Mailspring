@@ -157,6 +157,9 @@ export class MailsyncProcess extends EventEmitter {
     }
 
     const args = [`--mode`, mode];
+    console.log('VERBOSE!!!!!', { t: this, mode });
+    this.verbose = true;
+    console.log('VERBOSE!!!!!', { t: this, mode });
     if (this.verbose) {
       args.push('--verbose');
     }
@@ -174,6 +177,7 @@ export class MailsyncProcess extends EventEmitter {
       (this._proc.stdin as any).highWaterMark = 1024 * 1024;
     }
 
+    console.log('AAAAAAH', this._proc.stdout);
     // stdout may not be present if an error occurred. Error handler hasn't been
     // attached yet, but will be by the caller of spawnProcess.
     if (this.account && this._proc.stdout) {
@@ -193,6 +197,7 @@ export class MailsyncProcess extends EventEmitter {
 
       if (this._proc.stdout) {
         this._proc.stdout.on('data', data => {
+          console.log('MAILSYNC LOG', data);
           buffer += data;
           if (onData) onData(data);
         });
