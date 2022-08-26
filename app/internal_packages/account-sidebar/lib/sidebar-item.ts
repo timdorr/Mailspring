@@ -152,7 +152,7 @@ export default class SidebarItem {
           }
 
           const messageId = event.dataTransfer.getData('mailspring-message-id');
-          item.perspective.receiveIds(jsonData, messageId ? [messageId] : null);
+          item.perspective.receiveIds(jsonData?.threadIds, messageId ? [messageId] : null);
         },
 
         shouldAcceptDrop(item, event) {
