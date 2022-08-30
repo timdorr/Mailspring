@@ -13,6 +13,7 @@ import {
   CategoryStore,
 } from 'mailspring-exports';
 import { RetinaImg, ButtonDropdown, Menu } from 'mailspring-component-kit';
+import MovePicker from '../../category-picker/lib/toolbar-category-picker';
 
 interface MessageControlsProps {
   thread: Thread;
@@ -194,6 +195,7 @@ export default class MessageControls extends React.Component<MessageControlsProp
 
   render() {
     const items = this._items();
+    const { message } = this.props;
     return (
       <div className="message-actions-wrap" onClick={e => e.stopPropagation()}>
         <ButtonDropdown
@@ -203,6 +205,7 @@ export default class MessageControls extends React.Component<MessageControlsProp
           closeOnMenuClick
           menu={this._dropdownMenu(items.slice(1))}
         />
+        <MovePicker threads={[]} messages={[message]} />
         <div className="message-actions-ellipsis" onClick={this._onShowActionsMenu}>
           <RetinaImg name={'message-actions-ellipsis.png'} mode={RetinaImg.Mode.ContentIsMask} />
         </div>

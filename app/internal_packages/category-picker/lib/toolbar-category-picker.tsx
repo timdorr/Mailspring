@@ -7,6 +7,7 @@ import {
   AccountStore,
   WorkspaceStore,
   Thread,
+  Message,
 } from 'mailspring-exports';
 import { RetinaImg, KeyCommandsRegion } from 'mailspring-component-kit';
 
@@ -14,7 +15,7 @@ import MovePickerPopover from './move-picker-popover';
 import LabelPickerPopover from './label-picker-popover';
 
 // This sets the folder / label on one or more threads.
-class MovePicker extends React.Component<{ items: Thread[] }> {
+class MovePicker extends React.Component<{ threads: Thread[]; messages: Message[] }> {
   static displayName = 'MovePicker';
   static containerRequired = false;
 
@@ -28,40 +29,70 @@ class MovePicker extends React.Component<{ items: Thread[] }> {
   constructor(props) {
     super(props);
 
-    this._account = AccountStore.accountForItems(this.props.items);
+    this._account = MovePicker._findAccount(this.props);
+  }
+
+  _hasThreadOrMessage = () => this.props.threads?.length || this.props.messages?.length;
+
+  private static _findAccount(props: { threads: Thread[]; messages: Message[] }) {
+    if (props.threads?.length) {
+      return AccountStore.accountForItems(props.threads);
+    } else if (props.messages?.length) {
+      let accountIds = props.messages?.map(msg => msg.accountId);
+
+      if (accountIds.length > 1) {
+        accountIds = [...new Set(...accountIds)];
+      }
+
+      if (accountIds.length === 1) {
+        return AccountStore.accountForId(accountIds[0]);
+      }
+    }
+
+    return null;
   }
 
   // If the threads we're picking categories for change, (like when they
   // get their categories updated), we expect our parents to pass us new
   // props. We don't listen to the DatabaseStore ourselves.
   componentWillReceiveProps(nextProps) {
-    this._account = AccountStore.accountForItems(nextProps.items);
+    this._account = MovePicker._findAccount(nextProps);
   }
 
   _onOpenLabelsPopover = () => {
-    if (!(this.props.items.length > 0)) {
+    if (!this._hasThreadOrMessage()) {
       return;
     }
     if (this.context.sheetDepth !== WorkspaceStore.sheetStack().length - 1) {
       return;
     }
-    Actions.openPopover(<LabelPickerPopover threads={this.props.items} account={this._account} />, {
-      originRect: this._labelEl.getBoundingClientRect(),
-      direction: 'down',
-    });
+    Actions.openPopover(
+      <LabelPickerPopover threads={this.props.threads} account={this._account} />,
+      {
+        originRect: this._labelEl.getBoundingClientRect(),
+        direction: 'down',
+      }
+    );
   };
 
   _onOpenMovePopover = () => {
-    if (!(this.props.items.length > 0)) {
+    if (!this._hasThreadOrMessage()) {
       return;
     }
     if (this.context.sheetDepth !== WorkspaceStore.sheetStack().length - 1) {
       return;
     }
-    Actions.openPopover(<MovePickerPopover threads={this.props.items} account={this._account} />, {
-      originRect: this._moveEl.getBoundingClientRect(),
-      direction: 'down',
-    });
+    Actions.openPopover(
+      <MovePickerPopover
+        threads={this.props.threads}
+        messages={this.props.messages}
+        account={this._account}
+      />,
+      {
+        originRect: this._moveEl.getBoundingClientRect(),
+        direction: 'down',
+      }
+    );
   };
 
   render() {

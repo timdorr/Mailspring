@@ -15,12 +15,14 @@ import {
   ChangeFolderTask,
   ChangeLabelsTask,
   FocusedPerspectiveStore,
+  Message,
 } from 'mailspring-exports';
 import { Categories } from 'mailspring-observables';
 import { CategoryData } from './types';
 
 interface MovePickerPopoverProps {
   threads: Thread[];
+  messages: Message[];
   account: Account;
 }
 
@@ -76,8 +78,8 @@ export default class MovePickerPopover extends Component<
   };
 
   _recalculateState = (props = this.props, { searchValue = this.state.searchValue || '' } = {}) => {
-    const { threads, account } = props;
-    if (threads.length === 0) {
+    const { threads, messages, account } = props;
+    if (threads.length === 0 && messages.length == 0) {
       return { categoryData: [], searchValue };
     }
 
@@ -134,7 +136,7 @@ export default class MovePickerPopover extends Component<
   };
 
   _onSelectCategory = item => {
-    if (this.props.threads.length === 0) {
+    if (this.props.threads.length === 0 && this.props.messages.length === 0) {
       return;
     }
 
@@ -164,13 +166,14 @@ export default class MovePickerPopover extends Component<
   };
 
   _onMoveToCategory = ({ category }) => {
-    const { threads } = this.props;
+    const { threads, messages } = this.props;
 
     if (category instanceof Folder) {
       Actions.queueTask(
         new ChangeFolderTask({
           source: 'Category Picker: New Category',
           threads: threads,
+          messages: messages,
           folder: category,
         })
       );
